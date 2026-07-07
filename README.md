@@ -1,5 +1,9 @@
 # Raylib Desmos Clone
 
+<p align="center">
+  <img src="logo.svg" alt="Raylib Desmos Clone" width="180"/>
+</p>
+
 A Desmos-style graphing calculator built in C++ using Raylib, compiled to WebAssembly via Emscripten.
 
 **[Live Demo](https://aavishkar331.github.io/Desmos-clone)**
