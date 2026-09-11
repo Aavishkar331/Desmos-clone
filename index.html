@@ -1,202 +1,96 @@
+
 <!doctype html>
-<html lang="en">
+<html lang="EN-us">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
-    <title>Desmos Clone</title>
+    <title>raylib web game</title>
 
-    <meta name="title"       content="Desmos Clone">
-    <meta name="description" content="A Desmos-style graphing calculator built with Raylib + WebAssembly">
-    <meta name="keywords"    content="desmos, graphing calculator, raylib, webassembly, math, C++">
+    <meta name="title" content="raylib web game">
+    <meta name="description" content="New raylib web videogame, developed using raylib videogames library">
+    <meta name="keywords" content="raylib, programming, examples, html5, C, C++, library, learn, games, videogames">
+    <meta name="viewport" content="width=device-width">
 
-    <!-- Prevent pinch/double-tap zoom (conflicts with graph zoom); match device width -->
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <!-- Open Graph metatags for sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="raylib web game">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image" content="https://www.raylib.com/common/raylib_logo.png">
+    <meta property="og:image:alt" content="New raylib web videogame, developed using raylib videogames library" />
+    <meta property="og:site_name" content="raylib - example">
+    <meta property="og:url" content="https://www.raylib.com/games.html">
+    <meta property="og:description" content="New raylib web videogame, developed using raylib videogames library">
 
-    <!-- iOS: full-screen when added to home screen -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Twitter metatags for sharing -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@raysan5">
+    <meta name="twitter:title" content="raylib web game">
+    <meta name="twitter:image" content="https://www.raylib.com/common/raylib_logo.png">
+    <meta name="twitter:image:alt" content="New raylib web videogame, developed using raylib videogames library">
+    <meta name="twitter:url" content="https://www.raylib.com/games.html">
+    <meta name="twitter:description" content="New raylib web videogame, developed using raylib videogames library">
 
-    <!-- Open Graph -->
-    <meta property="og:type"        content="website">
-    <meta property="og:title"       content="Desmos Clone">
-    <meta property="og:description" content="A Desmos-style graphing calculator — pan, zoom, implicit curves">
-    <meta property="og:url"         content="https://aavishkar331.github.io/Desmos-clone">
-
-    <link rel="shortcut icon" href="logo.svg">
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="https://www.raylib.com/favicon.ico">
 
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        html, body {
-            width: 100%; height: 100%;
-            overflow: hidden;       /* no page scroll on mobile swipe */
-            background: black;
-            touch-action: none;     /* give all touch to canvas */
-        }
-
-        canvas.emscripten {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
-            border: none;
-            background: black;
-            touch-action: none;
-        }
+        body { margin: 0px; overflow: hidden; background-color: black; }
+        canvas.emscripten { border: 0px none; background-color: black; }
     </style>
-
     <script type='text/javascript' src="https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js"> </script>
     <script type='text/javascript'>
-        function saveFileFromMEMFSToDisk(memoryFSname, localFSname)
+        function saveFileFromMEMFSToDisk(memoryFSname, localFSname)     // This can be called by C/C++ code
         {
-            var isSafari = false;
+            var isSafari = false; // Not supported, navigator.userAgent access is being restricted
+            //var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
             var data = FS.readFile(memoryFSname);
             var blob;
+
             if (isSafari) blob = new Blob([data.buffer], { type: "application/octet-stream" });
             else blob = new Blob([data.buffer], { type: "application/octet-binary" });
+
+            // NOTE: SaveAsDialog is a browser setting. For example, in Google Chrome,
+            // in Settings/Advanced/Downloads section you have a setting:
+            // 'Ask where to save each file before downloading' - which you can set true/false.
+            // If you enable this setting it would always ask you and bring the SaveAsDialog
             saveAs(blob, localFSname);
         }
     </script>
-  </head>
-  <body>
-    <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
-    <p id="output" />
-    <script>
-        var Module = {
-            print: (function() {
-                var element = document.getElementById('output');
-                if (element) element.value = '';
-                return function(text) {
-                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-                    console.log(text);
-                    if (element) {
-                      element.value += text + "\n";
-                      element.scrollTop = element.scrollHeight;
-                    }
-                };
-            })(),
-            canvas: (function() {
-                return document.getElementById('canvas');
-            })()
-        };
-    </script>
-
-    <!--
-      Mobile keyboard bridge
-      ──────────────────────
-      iOS/Android only raise the soft keyboard if .focus() is called
-      synchronously inside a touch handler. Our C++ game loop runs in
-      requestAnimationFrame (not a touch context), so inp.focus() there
-      is silently ignored by the browser.
-
-      Fix: canvas touchstart listener calls inp.focus() HERE — in the
-      touch handler — so the OS keyboard appears. C++ updates inp.value
-      the next frame (~16ms), well before the keyboard animation ends.
-    -->
-    <script>
-    (function () {
-        window._desmosEqText    = '';
-        window._desmosEqChanged = 0;
-
-        // Must match C++ constants: PX=10, PX+PW=320, PY=10
-        var PANEL_L = 10, PANEL_R = 320, PANEL_T = 10;
-
-        function ensureInput() {
-            var inp = document.getElementById('_desmos_eq_inp');
-            if (!inp) {
-                inp = document.createElement('input');
-                inp.id = '_desmos_eq_inp';
-                inp.type = 'text';
-                inp.setAttribute('autocorrect',    'off');
-                inp.setAttribute('autocapitalize', 'none');
-                inp.setAttribute('spellcheck',     'false');
-                // Offscreen but NOT display:none — iOS won't focus display:none elements
-                inp.style.cssText =
-                    'position:fixed;left:50px;top:-200px;' +
-                    'width:242px;height:36px;opacity:0;' +
-                    'pointer-events:none;z-index:9999;font-size:18px;';
-                document.body.appendChild(inp);
-                inp.addEventListener('input', function () {
-                    window._desmosEqText    = inp.value;
-                    window._desmosEqChanged = 1;
-                });
-            }
-            return inp;
-        }
-
-        window.addEventListener('load', function () {
-            ensureInput();
-            var canvas = document.getElementById('canvas');
-            if (!canvas) return;
-
-            // touchstart is synchronous in gesture context → .focus() accepted by iOS/Android
-            canvas.addEventListener('touchstart', function (e) {
-                var t    = e.changedTouches[0];
-                var rect = canvas.getBoundingClientRect();
-                var x = t.clientX - rect.left;
-                var y = t.clientY - rect.top;
-                if (x >= PANEL_L && x <= PANEL_R && y >= PANEL_T) {
-                    ensureInput().focus();
+    </head>
+    <body>
+        <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
+        <p id="output" />
+        <script>
+            var Module = {
+                print: (function() {
+                    var element = document.getElementById('output');
+                    if (element) element.value = ''; // clear browser cache
+                    return function(text) {
+                        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                        console.log(text);
+                        if (element) {
+                          element.value += text + "\n";
+                          element.scrollTop = element.scrollHeight; // focus on bottom
+                        }
+                    };
+                })(),
+                canvas: (function() {
+                    var canvas = document.getElementById('canvas');
+                    return canvas;
+                })()
+            };
+        </script>
+       <script>
+            var canvasEl = document.getElementById('canvas');
+            canvasEl.addEventListener('click', function() { canvasEl.focus(); });
+            canvasEl.focus();
+            canvasEl.addEventListener('keydown', function(e) {
+                if (['Backspace','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab',' '].includes(e.key)) {
+                    e.preventDefault();
                 }
-            }, { passive: true });
-        });
-
-        // ── Keyboard interceptor (capture phase, before Raylib) ──────────────
-        // Raylib registers a keydown handler on window/document (capture phase)
-        // and calls preventDefault() on ALL keys — this cancels the HTML input's
-        // default "insert/delete character" action, so backspace, typing, etc.
-        // silently do nothing.
-        //
-        // Fix: register OUR listener in capture phase BEFORE index.js loads
-        // (so it runs before Raylib's).  When our input is focused:
-        //   • stopImmediatePropagation() → Raylib never sees the event
-        //   • For Backspace/Delete: manually edit inp.value + fire 'input'
-        //   • For everything else: let browser default handle it (char insert etc.)
-        window.addEventListener('keydown', function (e) {
-            var inp = document.getElementById('_desmos_eq_inp');
-            if (!inp || document.activeElement !== inp) return;
-
-            // Block Raylib from receiving this event entirely
-            e.stopImmediatePropagation();
-
-            var s   = inp.selectionStart;
-            var end = inp.selectionEnd;
-
-            if (e.key === 'Backspace') {
-                e.preventDefault();                    // we handle it manually
-                if (s !== end) {                       // delete selection
-                    inp.value = inp.value.slice(0, s) + inp.value.slice(end);
-                    inp.setSelectionRange(s, s);
-                } else if (s > 0) {                   // delete char before cursor
-                    inp.value = inp.value.slice(0, s - 1) + inp.value.slice(s);
-                    inp.setSelectionRange(s - 1, s - 1);
-                }
-                inp.dispatchEvent(new Event('input')); // notify our 'input' listener
-
-            } else if (e.key === 'Delete') {
-                e.preventDefault();
-                if (s !== end) {
-                    inp.value = inp.value.slice(0, s) + inp.value.slice(end);
-                    inp.setSelectionRange(s, s);
-                } else if (s < inp.value.length) {
-                    inp.value = inp.value.slice(0, s) + inp.value.slice(s + 1);
-                    inp.setSelectionRange(s, s);
-                }
-                inp.dispatchEvent(new Event('input'));
-
-            } else if (e.key === 'Tab') {
-                e.preventDefault();                    // don't let Tab steal focus
-
-            }
-            // All other keys (printable chars, arrows, Home, End, Ctrl+A/C/V…):
-            // stopImmediatePropagation() already stopped Raylib.
-            // We do NOT call preventDefault(), so the browser handles them
-            // naturally — characters get inserted, arrows move the cursor, etc.
-        }, true /* capture: true → fires before Raylib */);
-
-    })();
-    </script>
-
-    <script async type="text/javascript" src="index.js"></script>
-  </body>
+            });
+        </script>
+	 <script async type="text/javascript" src="index.js"></script>
+    </body>
 </html>

@@ -6,59 +6,41 @@
 using namespace std;
 
 // ── Web/mobile keyboard support ─────────────────────────────────────────────
-// On touch devices there is no physical keyboard, so GetCharPressed() / IsKeyPressed()
-// return nothing.  We solve this by overlaying a native HTML <input> element
-// whenever an equation row is active.  The browser pops up the on-screen keyboard
-// automatically when the element is focused.  On desktop web, the same element
-// captures keyboard events (the canvas loses focus), so behaviour is consistent
-// across all web targets.
 #ifdef PLATFORM_WEB
 #include <emscripten/emscripten.h>
 
-// Show (or reposition) the HTML input overlay for the active row.
 static void webShowInput(const std::string& text, int screenY)
 {
     EM_ASM({
-        // The input element is created early by the HTML bridge script.
-        // Here we just update its value and move it to the active row.
         var inp = document.getElementById('_desmos_eq_inp');
-        if (!inp) return; // game loaded before bridge script — shouldn't happen
-        inp.style.top   = $1 + 'px';   // move onscreen over the active row
+        if (!inp) return;
+        inp.style.top   = $1 + 'px';
         inp.value       = UTF8ToString($0);
-        // place cursor at end
         var L = inp.value.length;
         inp.setSelectionRange(L, L);
-        // .focus() works on desktop (any context); on mobile the touchstart
-        // handler in index.html already focused it in the gesture context.
         inp.focus();
         window._desmosEqText    = inp.value;
         window._desmosEqChanged = 0;
     }, text.c_str(), screenY);
 }
 
-// Hide the HTML input overlay (called when activeIdx becomes -1).
-// We move it offscreen instead of display:none because iOS won't focus
-// a display:none element, which would break the keyboard on the next tap.
 static void webHideInput()
 {
     EM_ASM({
         var inp = document.getElementById('_desmos_eq_inp');
         if (inp) {
-            inp.style.top = '-200px';   // offscreen, not display:none
+            inp.style.top = '-200px';
             inp.blur();
         }
         window._desmosEqChanged = 0;
     });
 }
 
-// Returns true if the JS side has a pending text-change to deliver.
 static bool webInputChanged()
 {
     return EM_ASM_INT({ return window._desmosEqChanged || 0; }) != 0;
 }
 
-// Fetches the current text from JS.  Uses emscripten_run_script_string which
-// returns a pointer valid until the next call — we copy it into std::string.
 static std::string webGetInputText()
 {
     const char* s = emscripten_run_script_string("window._desmosEqText || ''");
@@ -75,11 +57,11 @@ static void webClearChanged()
 const Color EquationPanel::PALETTE[6] = 
 {
     RED,
-    {64,  156, 255, 255},   // blue
-    {80,  220, 120, 255},   // green
-    {255, 200,  50, 255},   // yellow
-    {200, 100, 255, 255},   // purple
-    {255, 140,  50, 255},   // orange
+    {64,  156, 255, 255},
+    {80,  220, 120, 255},
+    {255, 200,  50, 255},
+    {200, 100, 255, 255},
+    {255, 140,  50, 255},
 };
 
 EquationPanel::EquationPanel()
@@ -150,19 +132,16 @@ void EquationPanel::doTextInput(EquationEntry &e)
     bool hasSel = (e.selStart >= 0 && e.selStart != e.selEnd);
     int  sz = (int)e.text.size();
 
-    // Ctrl+A â select all
     if (ctrl && IsKeyPressed(KEY_A)) 
     {
         e.selStart = 0; e.selEnd = sz; e.cursor = sz;
         return;
     }
-    // Ctrl+C â copy
     if (ctrl && IsKeyPressed(KEY_C)) 
     {
         SetClipboardText(getSelection(e).c_str());
         return;
     }
-    // Ctrl+X â cut
     if (ctrl && IsKeyPressed(KEY_X)) 
     {
         SetClipboardText(getSelection(e).c_str());
@@ -170,7 +149,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
         changed = true; changedIdx = activeIdx;
         return;
     }
-    // Ctrl+V â paste
     if (ctrl && IsKeyPressed(KEY_V)) 
     {
         deleteSelection(e);
@@ -185,7 +163,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
         return;
     }
 
-    // Left arrow
     if (IsKeyPressed(KEY_LEFT)) 
     {
         if (hasSel && !shift) 
@@ -207,7 +184,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
             }
         }
     }
-    // Right arrow
     if (IsKeyPressed(KEY_RIGHT)) 
     {
         if (hasSel && !shift) 
@@ -229,14 +205,12 @@ void EquationPanel::doTextInput(EquationEntry &e)
             }
         }
     }
-    // Home
     if (IsKeyPressed(KEY_HOME)) 
     {
         if (shift) { if (e.selStart < 0) e.selStart = e.cursor; e.selEnd = 0; }
         else e.selStart = -1;
         e.cursor = 0;
     }
-    // End
     if (IsKeyPressed(KEY_END)) 
     {
         if (shift) { if (e.selStart < 0) e.selStart = e.cursor; e.selEnd = sz; }
@@ -244,7 +218,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
         e.cursor = sz;
     }
 
-    // Backspace
     if (IsKeyPressed(KEY_BACKSPACE)) 
     {
         if (hasSel) {
@@ -255,7 +228,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
         }
         changed = true; changedIdx = activeIdx;
     }
-    // Delete
     if (IsKeyPressed(KEY_DELETE)) 
     {
         if (hasSel) {
@@ -265,7 +237,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
         }
         changed = true; changedIdx = activeIdx;
     }
-    // Typed characters
     int c;
     while ((c = GetCharPressed()) > 0) 
     {
@@ -279,7 +250,6 @@ void EquationPanel::doTextInput(EquationEntry &e)
 
 void EquationPanel::update() 
 {
-    // reset one-frame flags
     changed = false; changedIdx = -1;
     added   = false;
     deleted = false; deletedIdx = -1;
@@ -287,17 +257,14 @@ void EquationPanel::update()
     Vector2 mouse = GetMousePosition();
     int n = (int)entries.size();
 
-    // -- mouse press ---------------------------------
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
     {
         bool clickedPanel = false;
 
-        // check each row
         for (int i = 0; i < n; i++) 
         {
             int ry = rowY(i);
 
-            // Ã delete button (right edge of row)
             Rectangle delBtn = {(float)(PX + PW - 32), (float)(ry + 14), 22, 22};
             if (CheckCollisionPointRec(mouse, delBtn)) 
             {
@@ -308,7 +275,6 @@ void EquationPanel::update()
                 return;
             }
 
-            // row body
             if (mouse.x >= PX && mouse.x <= PX + PW && mouse.y >= ry && mouse.y <= ry + ROW) 
             {
                 clickedPanel = true;
@@ -322,7 +288,6 @@ void EquationPanel::update()
             }
         }
 
-        // add button
         int addY = PY + PAD + n * ROW + PAD;
         if (mouse.x >= PX && mouse.x <= PX + PW && mouse.y >= addY && mouse.y <= addY + 34) 
         {
@@ -334,18 +299,15 @@ void EquationPanel::update()
             return;
         }
 
-        // clicked outside panel
         if (!clickedPanel && mouse.x >= PX && mouse.x <= PX + PW && mouse.y >= PY && mouse.y <= PY + panelH()) 
         {
-            // inside panel but not on a row (padding area) - do nothing
         } 
         else if (mouse.x < PX || mouse.x > PX + PW || mouse.y < PY || mouse.y > PY + panelH()) 
         {
-            activeIdx = -1; // click outside panel deselects
+            activeIdx = -1;
         }
     }
 
-    // -- drag to select -------------------------------
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && dragging && activeIdx >= 0) 
     {
         int ci = charAtPixel(entries[activeIdx], (int)mouse.x);
@@ -359,23 +321,17 @@ void EquationPanel::update()
     }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) dragging = false;
 
-    // -- Tab cycles rows ------------------------------
     if (IsKeyPressed(KEY_TAB) && n > 0) 
     {
         activeIdx = (activeIdx + 1) % n;
     }
 
 #ifdef PLATFORM_WEB
-    // -- Web/mobile: sync HTML input overlay with the active row --------------
-    // When activeIdx changes we reposition the overlay and pre-fill it with the
-    // current expression.  On touch devices the browser raises the soft keyboard
-    // automatically when the element receives focus.
+    // Sync HTML input overlay with the active row (no-ops if overlay absent)
     if (activeIdx != prevActiveIdx)
     {
         if (activeIdx >= 0 && activeIdx < (int)entries.size())
         {
-            // rowY() is in Raylib screen coords which equal CSS pixels for a
-            // fullscreen canvas.  Offset by half ROW so it sits over the text area.
             webShowInput(entries[activeIdx].text, rowY(activeIdx) + 6);
         }
         else
@@ -385,7 +341,6 @@ void EquationPanel::update()
         prevActiveIdx = activeIdx;
     }
 
-    // Poll for text changes pushed from JS (fires on every keystroke / paste).
     if (activeIdx >= 0 && webInputChanged())
     {
         std::string newText = webGetInputText();
@@ -399,8 +354,13 @@ void EquationPanel::update()
         }
         webClearChanged();
     }
+
+    // Fallback: desktop-web keyboard input via raylib directly.
+    if (activeIdx >= 0 && activeIdx < (int)entries.size())
+    {
+        doTextInput(entries[activeIdx]);
+    }
 #else
-    // -- Desktop: use Raylib keyboard input ------------------------------------
     if (activeIdx >= 0 && activeIdx < (int)entries.size())
     {
         doTextInput(entries[activeIdx]);
@@ -413,7 +373,6 @@ void EquationPanel::draw() const
     int h = panelH();
     int n = (int)entries.size();
 
-    // panel background
     DrawRectangle(PX, PY, PW, h, {15, 20, 30, 215});
     DrawRectangleLines(PX, PY, PW, h, {60, 80, 110, 180});
 
@@ -423,21 +382,17 @@ void EquationPanel::draw() const
         int ry = rowY(i);
         bool active = (i == activeIdx);
 
-        // row highlight
         if (active)
         {
             DrawRectangle(PX + 2, ry + 2, PW - 4, ROW - 4, {35, 50, 70, 200});
         }
 
-        // color marker square
         DrawRectangle(PX + PAD, ry + 17, 14, 14, e.color);
         DrawRectangleLines(PX + PAD, ry + 17, 14, 14, {255, 255, 255, 60});
 
-        // text draw area starts after marker
         int textX = PX + PAD + 22 + PAD;
         int textY = ry + ROW / 2 - 9;
 
-        // selection highlight (draw before text so text is on top)
         if (active && e.selStart >= 0 && e.selStart != e.selEnd) 
         {
             int lo = min(e.selStart, e.selEnd);
@@ -447,7 +402,6 @@ void EquationPanel::draw() const
             DrawRectangle(textX + x0, textY - 1, x1 - x0, 22, {70, 130, 200, 150});
         }
 
-        // expression text (or placeholder)
         if (e.text.empty()) 
         {
             DrawText("type expression...", textX, textY, 18, {80, 95, 115, 160});
@@ -457,18 +411,15 @@ void EquationPanel::draw() const
             DrawText(e.text.c_str(), textX, textY, 18, WHITE);
         }
 
-        // blinking cursor (blinks every 0.5s)
         if (active && fmod(GetTime(), 1.0) < 0.55) 
         {
             int cx = MeasureText(e.text.substr(0, e.cursor).c_str(), 18);
             DrawRectangle(textX + cx, textY - 2, 2, 22, WHITE);
         }
 
-        // x delete button
         DrawText("x", PX + PW - 26, ry + 15, 18, {180, 70, 70, 200});
     }
 
-    // add button
     int addY = PY + PAD + n * ROW + PAD;
     DrawRectangle(PX + PAD, addY, PW - 2 * PAD, 34, {35, 50, 70, 180});
     DrawText("+ add equation", PX + PW / 2 - MeasureText("+ add equation", 16) / 2, addY + 9, 16, {130, 170, 215, 210});
