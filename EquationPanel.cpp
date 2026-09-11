@@ -19,38 +19,17 @@ using namespace std;
 static void webShowInput(const std::string& text, int screenY)
 {
     EM_ASM({
+        // The input element is created early by the HTML bridge script.
+        // Here we just update its value and move it to the active row.
         var inp = document.getElementById('_desmos_eq_inp');
-        if (!inp) {
-            inp = document.createElement('input');
-            inp.id          = '_desmos_eq_inp';
-            inp.type        = 'text';
-            inp.autocomplete = 'off';
-            inp.setAttribute('autocorrect',    'off');
-            inp.setAttribute('autocapitalize', 'none');
-            inp.setAttribute('spellcheck',     'false');
-            inp.style.cssText =
-                'position:fixed;left:50px;width:242px;height:36px;' +
-                'font-size:18px;font-family:monospace;' +
-                'background:rgba(35,50,70,0.0);' +  // transparent — Raylib draws the row
-                'color:white;border:none;padding:0 8px;box-sizing:border-box;' +
-                'z-index:9999;outline:none;caret-color:white;';
-            document.body.appendChild(inp);
-
-            inp.addEventListener('input', function() {
-                window._desmosEqText    = inp.value;
-                window._desmosEqChanged = 1;
-            });
-            // Tapping the canvas outside the input deselects (blur fires)
-            inp.addEventListener('blur', function() {
-                window._desmosEqChanged = 0;
-            });
-        }
-        inp.style.top     = $1 + 'px';
-        inp.style.display = 'block';
-        inp.value         = UTF8ToString($0);
+        if (!inp) return; // game loaded before bridge script — shouldn't happen
+        inp.style.top   = $1 + 'px';   // move onscreen over the active row
+        inp.value       = UTF8ToString($0);
         // place cursor at end
         var L = inp.value.length;
         inp.setSelectionRange(L, L);
+        // .focus() works on desktop (any context); on mobile the touchstart
+        // handler in index.html already focused it in the gesture context.
         inp.focus();
         window._desmosEqText    = inp.value;
         window._desmosEqChanged = 0;
@@ -58,11 +37,16 @@ static void webShowInput(const std::string& text, int screenY)
 }
 
 // Hide the HTML input overlay (called when activeIdx becomes -1).
+// We move it offscreen instead of display:none because iOS won't focus
+// a display:none element, which would break the keyboard on the next tap.
 static void webHideInput()
 {
     EM_ASM({
         var inp = document.getElementById('_desmos_eq_inp');
-        if (inp) { inp.style.display = 'none'; inp.blur(); }
+        if (inp) {
+            inp.style.top = '-200px';   // offscreen, not display:none
+            inp.blur();
+        }
         window._desmosEqChanged = 0;
     });
 }

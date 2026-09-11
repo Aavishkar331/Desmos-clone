@@ -591,7 +591,7 @@ function createExportWrapper(name, func, nargs) {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-  return locateFile('index.wasm');
+  return locateFile('_build_out.wasm');
 }
 
 function getBinarySync(file) {
@@ -6071,6 +6071,22 @@ var stringToUTF8Array = (str, heap, outIdx, maxBytesToWrite) => {
       abortOnCannotGrowMemory(requestedSize);
     };
 
+  
+  
+  
+  var _emscripten_run_script_string = (ptr) => {
+      var s = eval(UTF8ToString(ptr));
+      if (s == null) {
+        return 0;
+      }
+      s += '';
+      var me = _emscripten_run_script_string;
+      me.bufferSize = lengthBytesUTF8(s) + 1;
+      me.buffer = _realloc(me.buffer ?? 0, me.bufferSize)
+      stringToUTF8(s, me.buffer, me.bufferSize);
+      return me.buffer;
+    };
+
   /** @suppress {checkTypes} */
   var _emscripten_sample_gamepad_data = () => {
       try {
@@ -9396,51 +9412,55 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('wasmBinary');
 }
 var ASM_CONSTS = {
-  527144: () => { return window.innerWidth; },  
- 527174: () => { return window.innerHeight; },  
- 527205: () => { if (document.fullscreenElement) return 1; },  
- 527251: () => { return Module.canvas.width; },  
- 527283: () => { return parseInt(Module.canvas.style.width); },  
- 527331: () => { document.exitFullscreen(); },  
- 527358: () => { setTimeout(function() { Module.requestFullscreen(false, false); }, 100); },  
- 527431: () => { if (document.fullscreenElement) return 1; },  
- 527477: () => { return Module.canvas.width; },  
- 527509: () => { return screen.width; },  
- 527534: () => { document.exitFullscreen(); },  
- 527561: () => { setTimeout(function() { Module.requestFullscreen(false, true); setTimeout(function() { canvas.style.width="unset"; }, 100); }, 100); },  
- 527694: () => { return window.innerWidth; },  
- 527720: () => { return window.innerHeight; },  
- 527747: () => { if (document.fullscreenElement) return 1; },  
- 527793: () => { return Module.canvas.width; },  
- 527825: () => { return parseInt(Module.canvas.style.width); },  
- 527873: () => { if (document.fullscreenElement) return 1; },  
- 527919: () => { return Module.canvas.width; },  
- 527951: () => { return screen.width; },  
- 527976: () => { return window.innerWidth; },  
- 528002: () => { return window.innerHeight; },  
- 528029: () => { if (document.fullscreenElement) return 1; },  
- 528075: () => { return Module.canvas.width; },  
- 528107: () => { return screen.width; },  
- 528132: () => { document.exitFullscreen(); },  
- 528159: () => { if (document.fullscreenElement) return 1; },  
- 528205: () => { return Module.canvas.width; },  
- 528237: () => { return parseInt(Module.canvas.style.width); },  
- 528285: () => { document.exitFullscreen(); },  
- 528312: ($0) => { Module.canvas.style.opacity = $0; },  
- 528350: () => { return screen.width; },  
- 528375: () => { return screen.height; },  
- 528401: () => { return window.screenX; },  
- 528428: () => { return window.screenY; },  
- 528455: () => { return window.devicePixelRatio; },  
- 528491: ($0) => { navigator.clipboard.writeText(UTF8ToString($0)); },  
- 528544: ($0) => { Module.canvas.style.cursor = UTF8ToString($0); },  
- 528595: () => { Module.canvas.style.cursor = 'none'; },  
- 528632: ($0, $1, $2, $3) => { try { navigator.getGamepads()[$0].vibrationActuator.playEffect('dual-rumble', { startDelay: 0, duration: $3, weakMagnitude: $1, strongMagnitude: $2 }); } catch (e) { try { navigator.getGamepads()[$0].hapticActuators[0].pulse($2, $3); } catch (e) { } } },  
- 528888: ($0) => { Module.canvas.style.cursor = UTF8ToString($0); },  
- 528939: () => { if (document.pointerLockElement) return 1; },  
- 528986: () => { if (document.fullscreenElement) return 1; },  
- 529032: () => { return window.innerWidth; },  
- 529058: () => { return window.innerHeight; }
+  527080: ($0, $1) => { var inp = document.getElementById('_desmos_eq_inp'); if (!inp) return; inp.style.top = $1 + 'px'; inp.value = UTF8ToString($0); var L = inp.value.length; inp.setSelectionRange(L, L); inp.focus(); window._desmosEqText = inp.value; window._desmosEqChanged = 0; },  
+ 527343: () => { var inp = document.getElementById('_desmos_eq_inp'); if (inp) { inp.style.top = '-200px'; inp.blur(); } window._desmosEqChanged = 0; },  
+ 527480: () => { return window._desmosEqChanged || 0; },  
+ 527521: () => { window._desmosEqChanged = 0; },  
+ 527554: () => { return window.innerWidth; },  
+ 527584: () => { return window.innerHeight; },  
+ 527615: () => { if (document.fullscreenElement) return 1; },  
+ 527661: () => { return Module.canvas.width; },  
+ 527693: () => { return parseInt(Module.canvas.style.width); },  
+ 527741: () => { document.exitFullscreen(); },  
+ 527768: () => { setTimeout(function() { Module.requestFullscreen(false, false); }, 100); },  
+ 527841: () => { if (document.fullscreenElement) return 1; },  
+ 527887: () => { return Module.canvas.width; },  
+ 527919: () => { return screen.width; },  
+ 527944: () => { document.exitFullscreen(); },  
+ 527971: () => { setTimeout(function() { Module.requestFullscreen(false, true); setTimeout(function() { canvas.style.width="unset"; }, 100); }, 100); },  
+ 528104: () => { return window.innerWidth; },  
+ 528130: () => { return window.innerHeight; },  
+ 528157: () => { if (document.fullscreenElement) return 1; },  
+ 528203: () => { return Module.canvas.width; },  
+ 528235: () => { return parseInt(Module.canvas.style.width); },  
+ 528283: () => { if (document.fullscreenElement) return 1; },  
+ 528329: () => { return Module.canvas.width; },  
+ 528361: () => { return screen.width; },  
+ 528386: () => { return window.innerWidth; },  
+ 528412: () => { return window.innerHeight; },  
+ 528439: () => { if (document.fullscreenElement) return 1; },  
+ 528485: () => { return Module.canvas.width; },  
+ 528517: () => { return screen.width; },  
+ 528542: () => { document.exitFullscreen(); },  
+ 528569: () => { if (document.fullscreenElement) return 1; },  
+ 528615: () => { return Module.canvas.width; },  
+ 528647: () => { return parseInt(Module.canvas.style.width); },  
+ 528695: () => { document.exitFullscreen(); },  
+ 528722: ($0) => { Module.canvas.style.opacity = $0; },  
+ 528760: () => { return screen.width; },  
+ 528785: () => { return screen.height; },  
+ 528811: () => { return window.screenX; },  
+ 528838: () => { return window.screenY; },  
+ 528865: () => { return window.devicePixelRatio; },  
+ 528901: ($0) => { navigator.clipboard.writeText(UTF8ToString($0)); },  
+ 528954: ($0) => { Module.canvas.style.cursor = UTF8ToString($0); },  
+ 529005: () => { Module.canvas.style.cursor = 'none'; },  
+ 529042: ($0, $1, $2, $3) => { try { navigator.getGamepads()[$0].vibrationActuator.playEffect('dual-rumble', { startDelay: 0, duration: $3, weakMagnitude: $1, strongMagnitude: $2 }); } catch (e) { try { navigator.getGamepads()[$0].hapticActuators[0].pulse($2, $3); } catch (e) { } } },  
+ 529298: ($0) => { Module.canvas.style.cursor = UTF8ToString($0); },  
+ 529349: () => { if (document.pointerLockElement) return 1; },  
+ 529396: () => { if (document.fullscreenElement) return 1; },  
+ 529442: () => { return window.innerWidth; },  
+ 529468: () => { return window.innerHeight; }
 };
 function SetCanvasIdJs(out,outSize) { var canvasId = "#" + Module.canvas.id; stringToUTF8(canvasId, out, outSize); }
 
@@ -9448,6 +9468,7 @@ function SetCanvasIdJs(out,outSize) { var canvasId = "#" + Module.canvas.id; str
 var _main = Module['_main'] = makeInvalidEarlyAccess('_main');
 var _free = makeInvalidEarlyAccess('_free');
 var _malloc = makeInvalidEarlyAccess('_malloc');
+var _realloc = makeInvalidEarlyAccess('_realloc');
 var _fflush = makeInvalidEarlyAccess('_fflush');
 var _emscripten_stack_get_end = makeInvalidEarlyAccess('_emscripten_stack_get_end');
 var _emscripten_stack_get_base = makeInvalidEarlyAccess('_emscripten_stack_get_base');
@@ -9466,6 +9487,7 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
   assert(typeof wasmExports['free'] != 'undefined', 'missing Wasm export: free');
   assert(typeof wasmExports['malloc'] != 'undefined', 'missing Wasm export: malloc');
+  assert(typeof wasmExports['realloc'] != 'undefined', 'missing Wasm export: realloc');
   assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
   assert(typeof wasmExports['emscripten_stack_get_end'] != 'undefined', 'missing Wasm export: emscripten_stack_get_end');
   assert(typeof wasmExports['emscripten_stack_get_base'] != 'undefined', 'missing Wasm export: emscripten_stack_get_base');
@@ -9480,6 +9502,7 @@ function assignWasmExports(wasmExports) {
   _main = Module['_main'] = createExportWrapper('main', wasmExports['main'], 2);
   _free = createExportWrapper('free', wasmExports['free'], 1);
   _malloc = createExportWrapper('malloc', wasmExports['malloc'], 1);
+  _realloc = createExportWrapper('realloc', wasmExports['realloc'], 2);
   _fflush = createExportWrapper('fflush', wasmExports['fflush'], 1);
   _emscripten_stack_get_end = wasmExports['emscripten_stack_get_end'];
   _emscripten_stack_get_base = wasmExports['emscripten_stack_get_base'];
@@ -9858,6 +9881,8 @@ var wasmImports = {
   emscripten_glViewport: _emscripten_glViewport,
   /** @export */
   emscripten_resize_heap: _emscripten_resize_heap,
+  /** @export */
+  emscripten_run_script_string: _emscripten_run_script_string,
   /** @export */
   emscripten_sample_gamepad_data: _emscripten_sample_gamepad_data,
   /** @export */
