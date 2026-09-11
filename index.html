@@ -1,41 +1,56 @@
 <!doctype html>
-<html lang="EN-us">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
-    <title>raylib web game</title>
+    <title>Desmos Clone</title>
 
-    <meta name="title" content="raylib web game">
-    <meta name="description" content="New raylib web videogame, developed using raylib videogames library">
-    <meta name="keywords" content="raylib, programming, examples, html5, C, C++, library, learn, games, videogames">
-    <meta name="viewport" content="width=device-width">
+    <meta name="title"       content="Desmos Clone">
+    <meta name="description" content="A Desmos-style graphing calculator built with Raylib + WebAssembly">
+    <meta name="keywords"    content="desmos, graphing calculator, raylib, webassembly, math, C++">
 
-    <!-- Open Graph metatags for sharing -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="raylib web game">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image" content="https://www.raylib.com/common/raylib_logo.png">
-    <meta property="og:image:alt" content="New raylib web videogame, developed using raylib videogames library" />
-    <meta property="og:site_name" content="raylib - example">
-    <meta property="og:url" content="https://www.raylib.com/games.html">
-    <meta property="og:description" content="New raylib web videogame, developed using raylib videogames library">
+    <!--
+      width=device-width        → match physical screen width
+      initial-scale=1           → no zoom on load
+      maximum-scale=1           → disable pinch-to-zoom (would conflict with graph zoom)
+      user-scalable=no          → disable double-tap zoom on iOS/Android
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-    <!-- Twitter metatags for sharing -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:site" content="@raysan5">
-    <meta name="twitter:title" content="raylib web game">
-    <meta name="twitter:image" content="https://www.raylib.com/common/raylib_logo.png">
-    <meta name="twitter:image:alt" content="New raylib web videogame, developed using raylib videogames library">
-    <meta name="twitter:url" content="https://www.raylib.com/games.html">
-    <meta name="twitter:description" content="New raylib web videogame, developed using raylib videogames library">
+    <!-- iOS PWA-style full-screen -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website">
+    <meta property="og:title"       content="Desmos Clone">
+    <meta property="og:description" content="A Desmos-style graphing calculator — pan, zoom, implicit curves">
+    <meta property="og:url"         content="https://aavishkar331.github.io/Desmos-clone">
 
     <!-- Favicon -->
-    <link rel="shortcut icon" href="https://www.raylib.com/favicon.ico">
+    <link rel="shortcut icon" href="logo.svg">
 
     <style>
-        body { margin: 0px; overflow: hidden; background-color: black; }
-        canvas.emscripten { border: 0px none; background-color: black; }
+        /* Kill all margins/scrollbars — canvas must be the entire page */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;           /* no page scroll on mobile swipe */
+            background: black;
+            touch-action: none;         /* let the canvas handle all touch input */
+        }
+
+        canvas.emscripten {
+            display: block;
+            width: 100% !important;     /* fill viewport on all screen sizes */
+            height: 100% !important;
+            border: none;
+            background: black;
+            touch-action: none;         /* prevent browser scroll-hijack on canvas */
+        }
     </style>
     <script type='text/javascript' src="https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js"> </script>
     <script type='text/javascript'>
