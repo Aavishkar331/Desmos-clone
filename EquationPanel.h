@@ -47,6 +47,9 @@ private:
     int  nextColorIdx;
     bool dragging;
     int  dragAnchor;   // char index where drag started
+#ifdef PLATFORM_WEB
+    int  prevActiveIdx; // tracks active row changes to reposition HTML input overlay
+#endif
 
     int  panelH()              const;
     int  rowY(int i)           const;

@@ -11,7 +11,6 @@ class App
 {
     private:
         int screenW,screenH;
-        bool running;
         Cam camera;
         Grid grid;
         vector<Graph> graphs;

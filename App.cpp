@@ -19,7 +19,6 @@ App::App()
     grid = Grid(camera, screenW, screenH);
     graphs.push_back(Graph(camera, screenW, screenH, "sin(x)", RED));
     SetTargetFPS(120);
-    running = true;
 }
 void App::step() {
     update();

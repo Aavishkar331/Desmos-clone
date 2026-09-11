@@ -5,6 +5,89 @@
 
 using namespace std;
 
+// ── Web/mobile keyboard support ─────────────────────────────────────────────
+// On touch devices there is no physical keyboard, so GetCharPressed() / IsKeyPressed()
+// return nothing.  We solve this by overlaying a native HTML <input> element
+// whenever an equation row is active.  The browser pops up the on-screen keyboard
+// automatically when the element is focused.  On desktop web, the same element
+// captures keyboard events (the canvas loses focus), so behaviour is consistent
+// across all web targets.
+#ifdef PLATFORM_WEB
+#include <emscripten/emscripten.h>
+
+// Show (or reposition) the HTML input overlay for the active row.
+static void webShowInput(const std::string& text, int screenY)
+{
+    EM_ASM({
+        var inp = document.getElementById('_desmos_eq_inp');
+        if (!inp) {
+            inp = document.createElement('input');
+            inp.id          = '_desmos_eq_inp';
+            inp.type        = 'text';
+            inp.autocomplete = 'off';
+            inp.setAttribute('autocorrect',    'off');
+            inp.setAttribute('autocapitalize', 'none');
+            inp.setAttribute('spellcheck',     'false');
+            inp.style.cssText =
+                'position:fixed;left:50px;width:242px;height:36px;' +
+                'font-size:18px;font-family:monospace;' +
+                'background:rgba(35,50,70,0.0);' +  // transparent — Raylib draws the row
+                'color:white;border:none;padding:0 8px;box-sizing:border-box;' +
+                'z-index:9999;outline:none;caret-color:white;';
+            document.body.appendChild(inp);
+
+            inp.addEventListener('input', function() {
+                window._desmosEqText    = inp.value;
+                window._desmosEqChanged = 1;
+            });
+            // Tapping the canvas outside the input deselects (blur fires)
+            inp.addEventListener('blur', function() {
+                window._desmosEqChanged = 0;
+            });
+        }
+        inp.style.top     = $1 + 'px';
+        inp.style.display = 'block';
+        inp.value         = UTF8ToString($0);
+        // place cursor at end
+        var L = inp.value.length;
+        inp.setSelectionRange(L, L);
+        inp.focus();
+        window._desmosEqText    = inp.value;
+        window._desmosEqChanged = 0;
+    }, text.c_str(), screenY);
+}
+
+// Hide the HTML input overlay (called when activeIdx becomes -1).
+static void webHideInput()
+{
+    EM_ASM({
+        var inp = document.getElementById('_desmos_eq_inp');
+        if (inp) { inp.style.display = 'none'; inp.blur(); }
+        window._desmosEqChanged = 0;
+    });
+}
+
+// Returns true if the JS side has a pending text-change to deliver.
+static bool webInputChanged()
+{
+    return EM_ASM_INT({ return window._desmosEqChanged || 0; }) != 0;
+}
+
+// Fetches the current text from JS.  Uses emscripten_run_script_string which
+// returns a pointer valid until the next call — we copy it into std::string.
+static std::string webGetInputText()
+{
+    const char* s = emscripten_run_script_string("window._desmosEqText || ''");
+    return std::string(s ? s : "");
+}
+
+static void webClearChanged()
+{
+    EM_ASM({ window._desmosEqChanged = 0; });
+}
+#endif
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Color EquationPanel::PALETTE[6] = 
 {
     RED,
@@ -26,6 +109,9 @@ EquationPanel::EquationPanel()
     dragging = false;
     dragAnchor = 0;
     deletedIdx = -1;
+#ifdef PLATFORM_WEB
+    prevActiveIdx = -1;
+#endif
     entries.push_back({"sin(x)", PALETTE[0], 6, -1, -1});
 }
 
@@ -289,17 +375,53 @@ void EquationPanel::update()
     }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) dragging = false;
 
-    // -- Tab cycles rows ------------------------------
+    // -- Tab cycles rows ------------------------------
     if (IsKeyPressed(KEY_TAB) && n > 0) 
     {
         activeIdx = (activeIdx + 1) % n;
     }
 
-    // -- text input for active row --------------------
+#ifdef PLATFORM_WEB
+    // -- Web/mobile: sync HTML input overlay with the active row --------------
+    // When activeIdx changes we reposition the overlay and pre-fill it with the
+    // current expression.  On touch devices the browser raises the soft keyboard
+    // automatically when the element receives focus.
+    if (activeIdx != prevActiveIdx)
+    {
+        if (activeIdx >= 0 && activeIdx < (int)entries.size())
+        {
+            // rowY() is in Raylib screen coords which equal CSS pixels for a
+            // fullscreen canvas.  Offset by half ROW so it sits over the text area.
+            webShowInput(entries[activeIdx].text, rowY(activeIdx) + 6);
+        }
+        else
+        {
+            webHideInput();
+        }
+        prevActiveIdx = activeIdx;
+    }
+
+    // Poll for text changes pushed from JS (fires on every keystroke / paste).
+    if (activeIdx >= 0 && webInputChanged())
+    {
+        std::string newText = webGetInputText();
+        if (newText != entries[activeIdx].text)
+        {
+            entries[activeIdx].text     = newText;
+            entries[activeIdx].cursor   = (int)newText.size();
+            entries[activeIdx].selStart = -1;
+            changed    = true;
+            changedIdx = activeIdx;
+        }
+        webClearChanged();
+    }
+#else
+    // -- Desktop: use Raylib keyboard input ------------------------------------
     if (activeIdx >= 0 && activeIdx < (int)entries.size())
     {
         doTextInput(entries[activeIdx]);
     }
+#endif
 }
 
 void EquationPanel::draw() const 
