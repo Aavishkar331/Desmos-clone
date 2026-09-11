@@ -140,6 +140,60 @@
                 }
             }, { passive: true });
         });
+
+        // ── Keyboard interceptor (capture phase, before Raylib) ──────────────
+        // Raylib registers a keydown handler on window/document (capture phase)
+        // and calls preventDefault() on ALL keys — this cancels the HTML input's
+        // default "insert/delete character" action, so backspace, typing, etc.
+        // silently do nothing.
+        //
+        // Fix: register OUR listener in capture phase BEFORE index.js loads
+        // (so it runs before Raylib's).  When our input is focused:
+        //   • stopImmediatePropagation() → Raylib never sees the event
+        //   • For Backspace/Delete: manually edit inp.value + fire 'input'
+        //   • For everything else: let browser default handle it (char insert etc.)
+        window.addEventListener('keydown', function (e) {
+            var inp = document.getElementById('_desmos_eq_inp');
+            if (!inp || document.activeElement !== inp) return;
+
+            // Block Raylib from receiving this event entirely
+            e.stopImmediatePropagation();
+
+            var s   = inp.selectionStart;
+            var end = inp.selectionEnd;
+
+            if (e.key === 'Backspace') {
+                e.preventDefault();                    // we handle it manually
+                if (s !== end) {                       // delete selection
+                    inp.value = inp.value.slice(0, s) + inp.value.slice(end);
+                    inp.setSelectionRange(s, s);
+                } else if (s > 0) {                   // delete char before cursor
+                    inp.value = inp.value.slice(0, s - 1) + inp.value.slice(s);
+                    inp.setSelectionRange(s - 1, s - 1);
+                }
+                inp.dispatchEvent(new Event('input')); // notify our 'input' listener
+
+            } else if (e.key === 'Delete') {
+                e.preventDefault();
+                if (s !== end) {
+                    inp.value = inp.value.slice(0, s) + inp.value.slice(end);
+                    inp.setSelectionRange(s, s);
+                } else if (s < inp.value.length) {
+                    inp.value = inp.value.slice(0, s) + inp.value.slice(s + 1);
+                    inp.setSelectionRange(s, s);
+                }
+                inp.dispatchEvent(new Event('input'));
+
+            } else if (e.key === 'Tab') {
+                e.preventDefault();                    // don't let Tab steal focus
+
+            }
+            // All other keys (printable chars, arrows, Home, End, Ctrl+A/C/V…):
+            // stopImmediatePropagation() already stopped Raylib.
+            // We do NOT call preventDefault(), so the browser handles them
+            // naturally — characters get inserted, arrows move the cursor, etc.
+        }, true /* capture: true → fires before Raylib */);
+
     })();
     </script>
 
