@@ -10,12 +10,7 @@
     <meta name="description" content="A Desmos-style graphing calculator built with Raylib + WebAssembly">
     <meta name="keywords"    content="desmos, graphing calculator, raylib, webassembly, math, C++">
 
-    <!--
-      width=device-width  → match physical screen width
-      initial-scale=1     → no zoom on load
-      maximum-scale=1     → disable pinch-to-zoom (conflicts with graph zoom)
-      user-scalable=no    → disable double-tap zoom on iOS/Android
-    -->
+    <!-- Prevent pinch/double-tap zoom (conflicts with graph zoom); match device width -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
     <!-- iOS: full-screen when added to home screen -->
@@ -28,7 +23,6 @@
     <meta property="og:description" content="A Desmos-style graphing calculator — pan, zoom, implicit curves">
     <meta property="og:url"         content="https://aavishkar331.github.io/Desmos-clone">
 
-    <!-- Favicon -->
     <link rel="shortcut icon" href="logo.svg">
 
     <style>
@@ -36,133 +30,119 @@
 
         html, body {
             width: 100%; height: 100%;
-            overflow: hidden;       /* prevent page scroll on mobile swipe */
+            overflow: hidden;       /* no page scroll on mobile swipe */
             background: black;
-            touch-action: none;     /* give all touch events to the canvas */
+            touch-action: none;     /* give all touch to canvas */
         }
 
         canvas.emscripten {
             display: block;
-            width: 100% !important;   /* fill viewport on phones/tablets */
+            width: 100% !important;
             height: 100% !important;
             border: none;
             background: black;
-            touch-action: none;       /* stop browser hijacking swipe for scroll */
+            touch-action: none;
         }
     </style>
+
     <script type='text/javascript' src="https://cdn.jsdelivr.net/gh/eligrey/FileSaver.js/dist/FileSaver.min.js"> </script>
     <script type='text/javascript'>
-        function saveFileFromMEMFSToDisk(memoryFSname, localFSname)     // This can be called by C/C++ code
+        function saveFileFromMEMFSToDisk(memoryFSname, localFSname)
         {
-            var isSafari = false; // Not supported, navigator.userAgent access is being restricted
-            //var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+            var isSafari = false;
             var data = FS.readFile(memoryFSname);
             var blob;
-
             if (isSafari) blob = new Blob([data.buffer], { type: "application/octet-stream" });
             else blob = new Blob([data.buffer], { type: "application/octet-binary" });
-
-            // NOTE: SaveAsDialog is a browser setting. For example, in Google Chrome,
-            // in Settings/Advanced/Downloads section you have a setting:
-            // 'Ask where to save each file before downloading' - which you can set true/false.
-            // If you enable this setting it would always ask you and bring the SaveAsDialog
             saveAs(blob, localFSname);
         }
     </script>
-    </head>
-    <body>
-        <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
-        <p id="output" />
-        <script>
-            var Module = {
-                print: (function() {
-                    var element = document.getElementById('output');
-                    if (element) element.value = ''; // clear browser cache
-                    return function(text) {
-                        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-                        console.log(text);
-                        if (element) {
-                          element.value += text + "\n";
-                          element.scrollTop = element.scrollHeight; // focus on bottom
-                        }
-                    };
-                })(),
-                canvas: (function() {
-                    var canvas = document.getElementById('canvas');
-                    return canvas;
-                })()
-            };
-        </script>
-
-        <!--
-          Mobile keyboard bridge
-          ─────────────────────
-          iOS/Android only raise the soft keyboard if .focus() is called
-          synchronously inside a touch/click handler.  Our C++ game-loop
-          code runs inside requestAnimationFrame which is NOT a touch context,
-          so inp.focus() there is silently ignored by the browser.
-
-          Fix: register a touchstart listener on the canvas.  When the user
-          taps the equation panel area (left 320 px), we focus the hidden
-          input HERE — in the touch handler — so the OS keyboard appears.
-          C++ still owns all the logic; it just updates inp.value the next
-          frame (≤16 ms later, well before the keyboard animation finishes).
-        -->
-        <script>
-        (function () {
-            window._desmosEqText    = '';
-            window._desmosEqChanged = 0;
-
-            // Panel bounds (must match C++ constants PX=10, PX+PW=320, PY=10)
-            var PANEL_L = 10, PANEL_R = 320, PANEL_T = 10;
-
-            function ensureInput() {
-                var inp = document.getElementById('_desmos_eq_inp');
-                if (!inp) {
-                    inp = document.createElement('input');
-                    inp.id = '_desmos_eq_inp';
-                    inp.type = 'text';
-                    inp.setAttribute('autocorrect',    'off');
-                    inp.setAttribute('autocapitalize', 'none');
-                    inp.setAttribute('spellcheck',     'false');
-                    // Offscreen but visible (display:block + opacity:0) so iOS
-                    // will honour .focus() and raise the keyboard.
-                    // display:none elements cannot be focused on iOS.
-                    inp.style.cssText =
-                        'position:fixed;left:50px;top:-200px;' +
-                        'width:242px;height:36px;opacity:0;' +
-                        'pointer-events:none;z-index:9999;' +
-                        'font-size:18px;';
-                    document.body.appendChild(inp);
-
-                    inp.addEventListener('input', function () {
-                        window._desmosEqText    = inp.value;
-                        window._desmosEqChanged = 1;
-                    });
-                }
-                return inp;
-            }
-
-            window.addEventListener('load', function () {
-                ensureInput(); // put in DOM before game starts
-
-                var canvas = document.getElementById('canvas');
-                if (!canvas) return;
-
-                // touchstart fires synchronously → .focus() accepted by iOS/Android
-                canvas.addEventListener('touchstart', function (e) {
-                    var t    = e.changedTouches[0];
-                    var rect = canvas.getBoundingClientRect();
-                    var x = t.clientX - rect.left;
-                    var y = t.clientY - rect.top;
-                    if (x >= PANEL_L && x <= PANEL_R && y >= PANEL_T) {
-                        ensureInput().focus(); // ← keyboard appears here ✓
+  </head>
+  <body>
+    <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1></canvas>
+    <p id="output" />
+    <script>
+        var Module = {
+            print: (function() {
+                var element = document.getElementById('output');
+                if (element) element.value = '';
+                return function(text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                    if (element) {
+                      element.value += text + "\n";
+                      element.scrollTop = element.scrollHeight;
                     }
-                }, { passive: true });
-            });
-        })();
-        </script>
+                };
+            })(),
+            canvas: (function() {
+                return document.getElementById('canvas');
+            })()
+        };
+    </script>
 
-        <script async type="text/javascript" src="index.js"></script>
-    </body>
+    <!--
+      Mobile keyboard bridge
+      ──────────────────────
+      iOS/Android only raise the soft keyboard if .focus() is called
+      synchronously inside a touch handler. Our C++ game loop runs in
+      requestAnimationFrame (not a touch context), so inp.focus() there
+      is silently ignored by the browser.
+
+      Fix: canvas touchstart listener calls inp.focus() HERE — in the
+      touch handler — so the OS keyboard appears. C++ updates inp.value
+      the next frame (~16ms), well before the keyboard animation ends.
+    -->
+    <script>
+    (function () {
+        window._desmosEqText    = '';
+        window._desmosEqChanged = 0;
+
+        // Must match C++ constants: PX=10, PX+PW=320, PY=10
+        var PANEL_L = 10, PANEL_R = 320, PANEL_T = 10;
+
+        function ensureInput() {
+            var inp = document.getElementById('_desmos_eq_inp');
+            if (!inp) {
+                inp = document.createElement('input');
+                inp.id = '_desmos_eq_inp';
+                inp.type = 'text';
+                inp.setAttribute('autocorrect',    'off');
+                inp.setAttribute('autocapitalize', 'none');
+                inp.setAttribute('spellcheck',     'false');
+                // Offscreen but NOT display:none — iOS won't focus display:none elements
+                inp.style.cssText =
+                    'position:fixed;left:50px;top:-200px;' +
+                    'width:242px;height:36px;opacity:0;' +
+                    'pointer-events:none;z-index:9999;font-size:18px;';
+                document.body.appendChild(inp);
+                inp.addEventListener('input', function () {
+                    window._desmosEqText    = inp.value;
+                    window._desmosEqChanged = 1;
+                });
+            }
+            return inp;
+        }
+
+        window.addEventListener('load', function () {
+            ensureInput();
+            var canvas = document.getElementById('canvas');
+            if (!canvas) return;
+
+            // touchstart is synchronous in gesture context → .focus() accepted by iOS/Android
+            canvas.addEventListener('touchstart', function (e) {
+                var t    = e.changedTouches[0];
+                var rect = canvas.getBoundingClientRect();
+                var x = t.clientX - rect.left;
+                var y = t.clientY - rect.top;
+                if (x >= PANEL_L && x <= PANEL_R && y >= PANEL_T) {
+                    ensureInput().focus();
+                }
+            }, { passive: true });
+        });
+    })();
+    </script>
+
+    <script async type="text/javascript" src="index.js"></script>
+  </body>
 </html>
